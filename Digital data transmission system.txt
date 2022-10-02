@@ -1,0 +1,156 @@
+//Verilog Code For Digital Dta Transmisson System
+
+
+
+Crc serial:
+module crc(clk,din,en,rst,out
+ );
+input clk,din,en,rst;
+output reg[4:0]out;
+wire c1;
+assign c1= din ^out[4];
+always @(posedge clk)
+begin 
+if(~rst)
+out<=0;
+else if(en)
+begin 
+out[4]<=out[3];
+out[3]<=out[2];
+out[2]<=c1^out[1];
+out[1]<=out[0];
+out[0]<=c1;
+end end 
+endmodule
+
+Crc parallel :
+module crcpar(data,crc_en,rst,clk,crc_out);
+input crc_en,rst,clk;
+input [7:0]data;
+output [4:0]crc_out;
+reg [4:0]lfsr_q;
+reg [4:0]lfsr_c;
+assign crc_out=lfsr_q;
+always@(posedge clk)
+begin 
+lfsr_c[0]=lfsr_q[1]^lfsr_q[4]^data[0]^data[3];
+lfsr_c[1]=lfsr_q[2]^data[1];
+lfsr_c[2]=lfsr_q[1]^lfsr_q[3]^lfsr_q[4]^data[0]^data[2]^data[3];
+lfsr_c[3]=lfsr_q[2]^lfsr_q[4]^data[1]^data[3];
+lfsr_c[4]=lfsr_q[0]^lfsr_q[3]^data[2];
+end
+always@(posedge clk)
+begin
+if(~rst)
+begin
+lfsr_q<=5'b00000; 
+end
+else if(crc_en)
+begin
+lfsr_q<=lfsr_c;
+//lfsr_q<=crc_en?lfsr_c:lfsr_q;
+end
+end
+endmodule
+
+Hamming Encoder:
+module hamen(clk,d,c
+ );
+input clk;
+input [3:0] d;
+output reg[6:0] c;
+always@(posedge clk)
+begin
+ c[6]=d[3];
+ c[5]=d[2];
+ c[4]=d[1];
+ c[3]=d[1]^d[2]^d[3];
+ c[2]=d[0];
+ c[1]=d[0]^d[2]^d[3];
+ c[0]=d[0]^d[1]^d[3];
+ end
+endmodule
+ Syndrome Decoder:
+module hamd(c,clk,s,c2,d
+ );
+input clk;
+input[6:0] c;
+output reg[2:0]s;
+output reg[6:0] c2;
+output reg[3:0]d;
+always@(posedge clk)
+begin
+s[2]=c[0]^c[4]^c[5]^c[6];
+s[1]=c[1]^c[2]^c[5]^c[6];
+s[0]=c[0]^c[2]^c[4]^c[6];
+c2=c;
+if(s)
+c2[s-1]=~c[s-1];
+end
+always@(c2)
+begin
+d[0]=c2[2];
+d[1]=c2[4];
+d[2]=c2[5];
+d[3]=c2[6];
+end
+endmodule
+
+Sequence Detector:
+
+module sequence_0111(clock, reset, in_bit, out_bit
+ );
+ input clock, reset, in_bit;
+ output out_bit;
+ 
+ reg [2:0] state_reg, next_state;
+ // State declaration
+ parameter reset_state = 3'b000;
+ parameter read_zero = 3'b001;
+ parameter read_0_one = 3'b010;
+ parameter read_zero_one_one = 3'b011;
+ parameter read_zero_one_one_one= 3'b100;
+ 
+ // state register
+ always @ (posedge clock or posedge reset)
+ if (reset == 1) 
+ state_reg <= reset_state; 
+ else 
+ state_reg <= next_state;
+ // next-state logic
+always @ (state_reg or in_bit) 
+ case (state_reg)
+ reset_state: 
+ if (in_bit == 0) 
+ next_state = read_zero; 
+ else if (in_bit == 1) 
+ next_state = reset_state;
+ else next_state = reset_state;
+ read_zero: 
+ if (in_bit == 0) 
+ next_state = read_zero; 
+ else if (in_bit == 1) 
+ next_state = read_0_one;
+ else next_state = reset_state;
+ read_0_one: 
+ if (in_bit == 0) 
+ next_state = read_zero; 
+ else if (in_bit == 1) 
+ next_state = read_zero_one_one;
+ else next_state = reset_state;
+read_zero_one_one: 
+ if (in_bit == 0) 
+ next_state = read_zero;
+ else if (in_bit == 1) 
+ next_state = read_zero_one_one_one;
+ else next_state = reset_state;
+ read_zero_one_one_one: 
+ if (in_bit == 0) 
+ next_state = read_zero; 
+ else if (in_bit == 1) 
+ next_state = reset_state;
+ else next_state = reset_state;
+ default: next_state = reset_state;
+endcase
+assign out_bit = (state_reg == read_zero_one_one_one)? 1 : 0;
+endmodule
