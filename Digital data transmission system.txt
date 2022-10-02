@@ -1,4 +1,4 @@
-//Verilog Code For Digital Dta Transmisson System
+//Verilog Code For Digital Data Transmisson System
 
 
 
